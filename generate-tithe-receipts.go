@@ -2,7 +2,8 @@ package main
 
 // Tasks remaining to do:
 // - Create subtotal for each donor
-// - write into Word documents
+// - Fix Greeting
+// - Fix today's date in template footer
 
 import (
 	"cmp"
@@ -191,7 +192,7 @@ func main() {
 
 	// loop through people and print out their receipts
 	for personName, titheslice := range transactionLog {
-		donationTable := ""
+		donationTable := fmt.Sprintf("+ %10s\t%10s\t%20s\t%18s\t%10s\n", "Date", "Check No.", "Donor", "Fund", "Amount")
 		//fmt.Printf("%d tithes for %s\n", len(titheslice), personName)
 		for _, t := range titheslice {
 			donationTable += fmt.Sprintf("- %10s\t%10s\t%20s\t%18s\t%10s\n", t.date, t.checkNumber, personName, t.checkType, t.amount)
