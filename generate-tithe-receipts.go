@@ -1,10 +1,18 @@
 package main
 
+// Tasks remaining to do:
+// - Create subtotal for each donor
+// - write into Word documents
+
 import (
+	"cmp"
 	"os"
 	"fmt"
 	"strconv"
 	"strings"
+	"slices"
+	"regexp"
+	"errors"
 	"archive/zip"
     "github.com/xuri/excelize/v2"
     "github.com/lukasjarosch/go-docx"
@@ -18,6 +26,18 @@ type transaction struct {
 	amount string
 }
 
+func fileExists(path string) bool {
+    _, err := os.Stat(path)
+    if err == nil {
+        return true
+    }
+    if errors.Is(err, os.ErrNotExist) {
+        return false
+    }
+    // File may exist but is inaccessible (e.g., permission denied)
+    return false 
+}
+
 func isStringAnInt(s string) bool {
 	// Atoi is a shortcut for ParseInt(s, 10, 0)
 	if _, err := strconv.Atoi(s); err == nil {
@@ -28,24 +48,32 @@ func isStringAnInt(s string) bool {
 
 func main() {
 
-	if len(os.Args) < 2 {
+	if len(os.Args) < 3 {
 		fmt.Println()
-		fmt.Println("Usage: generate-tithe-receipts <file_path>")
+		fmt.Println("Usage: generate-tithe-receipts <zipfile_path> <template_path")
 		fmt.Println()
-		fmt.Println("       <file_path> is the path to a zip file containing giving sheets")
+		fmt.Println("       <zipfile_path> is the path to a zip file containing giving sheets")
+		fmt.Println("       <template_path> is the path to a Word document template")
 		fmt.Println()
 		return
 	}
 
 	filePath := os.Args[1]
+	templatePath := os.Args[2]
 
 	transactionLog := make(map[string][]transaction)
+	yearCount := make(map[string]int)
 
 	r, err := zip.OpenReader(filePath)
 	if err != nil {
 		fmt.Println(err)
 	}
 	defer r.Close()
+
+	// sort by filename so that dates will be in order
+	slices.SortFunc(r.File, func(a, b *zip.File) int {
+		return cmp.Compare(a.Name, b.Name)
+	})
 
 	// loop through files in zip archive
 	for _, file := range r.File {
@@ -84,6 +112,14 @@ func main() {
 			fmt.Println(err)
 			return
 		}
+
+		// use regex to increment value of yearCount
+		// so we can guess the tax year of the donations
+		//fmt.Println(fileDate)
+		yearRegex := `(\d{2})$`
+		re := regexp.MustCompile(yearRegex)
+		transactionYear := re.FindStringSubmatch(fileDate)
+		yearCount["20" + transactionYear[0]]++
 
 		// Get all the rows in the Sheet1.
 		rows, err := f.GetRows("Sheet1")
@@ -141,11 +177,54 @@ func main() {
 			}
 		}
 	}
+
+	// guess the year based on which year has the highest yearCount
+    taxYear := ""
+    maxCount := 0
+    for year, count := range yearCount {
+        if count > maxCount {
+            maxCount = count
+            taxYear = year
+        }
+    }
+	//fmt.Print("The year is ", taxYear)
+
 	// loop through people and print out their receipts
 	for personName, titheslice := range transactionLog {
+		donationTable := ""
 		//fmt.Printf("%d tithes for %s\n", len(titheslice), personName)
 		for _, t := range titheslice {
-			fmt.Printf("%10s\t%10s\t%40s\t%18s\t%10s\n", t.date, t.checkNumber, personName, t.checkType, t.amount)
+			donationTable += fmt.Sprintf("- %10s\t%10s\t%20s\t%18s\t%10s\n", t.date, t.checkNumber, personName, t.checkType, t.amount)
+		}
+		replaceMap := docx.PlaceholderMap{
+			"year":				taxYear,
+			"name":				personName,
+			"donationTable":	donationTable,
+		}
+		doc, err := docx.Open(templatePath)
+		if err != nil {
+			panic(err)
+		}
+		err = doc.ReplaceAll(replaceMap)
+		if err != nil {
+			panic(err)
+		}
+		re := regexp.MustCompile(`,* +`)
+		newPersonName := re.ReplaceAllString(personName, "-")
+		re = regexp.MustCompile(`\(+`)
+		newPersonName = re.ReplaceAllString(newPersonName, "")
+		re = regexp.MustCompile(`\)+`)
+		newPersonName = re.ReplaceAllString(newPersonName, "")
+		re = regexp.MustCompile(`\&+`)
+		newPersonName = re.ReplaceAllString(newPersonName, "and")
+		outputPath := "receipts-" + taxYear + "-" + newPersonName + ".docx"
+		if fileExists(outputPath) {
+			//panic("duplicate file name for " + outputPath)
+			fmt.Println("Warning: Overwriting file due to duplicate file name for " + outputPath)
+		}
+		err = doc.WriteToFile(outputPath)
+		if err != nil {
+			panic(err)
 		}
 	}
 }
