@@ -34,12 +34,15 @@ from the Google drive.  You can do this by going to the year's giving sheet
 folder, and selecting Download.
 
 Once you have the zipfile of giving sheets locally, you can then pass that 
-zipfile path as an argument to the utility.
+zipfile path as the first argument to the utility.
+
+The second argument you will need to pass to the utility is the docx template
+file.
 
 Linux Example:
 
 ```
-./generate-tithe-receipts ./2025\ Giving\ Sheets-20251226T163304Z-3-001.zip
+./generate-tithe-receipts ./2025\ Giving\ Sheets-20251226T163304Z-3-001.zip ./donation-receipt-template.docx
 ```
 
 
