@@ -51,7 +51,7 @@ func main() {
 
 	if len(os.Args) < 3 {
 		fmt.Println()
-		fmt.Println("Usage: generate-tithe-receipts <zipfile_path> <template_path")
+		fmt.Println("Usage: generate-tithe-receipts <zipfile_path> <template_path>")
 		fmt.Println()
 		fmt.Println("       <zipfile_path> is the path to a zip file containing giving sheets")
 		fmt.Println("       <template_path> is the path to a Word document template")

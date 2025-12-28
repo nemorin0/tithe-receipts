@@ -5,6 +5,15 @@ learn Go.
 
 ## Usage
 
+```
+$ ./generate-tithe-receipts -h
+
+Usage: generate-tithe-receipts <zipfile_path> <template_path>
+
+       <zipfile_path> is the path to a zip file containing giving sheets
+       <template_path> is the path to a Word document template
+```
+
 First you will need to download a zipfile of tithe & offering giving sheets 
 from the Google drive.  You can do this by selecting the year's giving sheet 
 folder in the Google Drive and choosing Download.
