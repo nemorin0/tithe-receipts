@@ -36,13 +36,16 @@ Linux Example:
 
 To build the binaries, you will need a working Go development environment.
 
-You will also need to install a couple Go packages into your environment.
+You will also need to install a few Go packages into your environment.
 
 This worked for me:
 
 ```
 go get github.com/xuri/excelize/v2
 go get github.com/lukasjarosch/go-docx
+go get github.com/shopspring/decimal
+go get golang.org/x/text/language
+go get golang.org/x/text/message
 ```
 
 ### Build Linux binary
