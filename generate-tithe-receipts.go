@@ -1,42 +1,41 @@
 package main
 
-// Tasks remaining to do:
-// - Create subtotal for each donor
-// - Fix Greeting
-// - Fix today's date in template footer
-
 import (
+	"archive/zip"
 	"cmp"
-	"os"
+	"errors"
 	"fmt"
+	"github.com/lukasjarosch/go-docx"
+	"github.com/shopspring/decimal"
+	"github.com/xuri/excelize/v2"
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
+	"os"
+	"regexp"
+	"slices"
 	"strconv"
 	"strings"
-	"slices"
-	"regexp"
-	"errors"
-	"archive/zip"
-    "github.com/xuri/excelize/v2"
-    "github.com/lukasjarosch/go-docx"
+	"time"
 )
 
 // Define a struct
 type transaction struct {
-	date string
+	date        string
 	checkNumber string
-	checkType string
-	amount string
+	checkType   string
+	amount      string
 }
 
 func fileExists(path string) bool {
-    _, err := os.Stat(path)
-    if err == nil {
-        return true
-    }
-    if errors.Is(err, os.ErrNotExist) {
-        return false
-    }
-    // File may exist but is inaccessible (e.g., permission denied)
-    return false 
+	_, err := os.Stat(path)
+	if err == nil {
+		return true
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		return false
+	}
+	// File may exist but is inaccessible (e.g., permission denied)
+	return false
 }
 
 func isStringAnInt(s string) bool {
@@ -82,10 +81,10 @@ func main() {
 
 		// 3. Open the file within the archive.
 		rc, err := file.Open()
-        if err != nil {
-        	panic(err)
-        }
-        defer rc.Close()
+		if err != nil {
+			panic(err)
+		}
+		defer rc.Close()
 
 		f, err := excelize.OpenReader(rc)
 		if err != nil {
@@ -104,7 +103,7 @@ func main() {
 			return
 		}
 		if len(a1cell) != 38 ||
-		   len(a2cell) != 16 {
+			len(a2cell) != 16 {
 			fmt.Println("error - this appears to not be a giving sheet")
 			return
 		}
@@ -120,7 +119,7 @@ func main() {
 		yearRegex := `(\d{2})$`
 		re := regexp.MustCompile(yearRegex)
 		transactionYear := re.FindStringSubmatch(fileDate)
-		yearCount["20" + transactionYear[0]]++
+		yearCount["20"+transactionYear[0]]++
 
 		// Get all the rows in the Sheet1.
 		rows, err := f.GetRows("Sheet1")
@@ -152,7 +151,7 @@ func main() {
 					if strings.Contains(row[4], "Building") {
 						checkType = "Building Fund"
 					} else if strings.Contains(row[4], "Deacon") {
-						checkType = "Deacons Fund" 
+						checkType = "Deacons Fund"
 					} else if row[4] == "Thank Offering" {
 						checkType = "Thank Offering"
 					}
@@ -180,27 +179,59 @@ func main() {
 	}
 
 	// guess the year based on which year has the highest yearCount
-    taxYear := ""
-    maxCount := 0
-    for year, count := range yearCount {
-        if count > maxCount {
-            maxCount = count
-            taxYear = year
-        }
-    }
+	taxYear := ""
+	maxCount := 0
+	for year, count := range yearCount {
+		if count > maxCount {
+			maxCount = count
+			taxYear = year
+		}
+	}
 	//fmt.Print("The year is ", taxYear)
+
+	// get today's date
+	now := time.Now()
+	dateLayout := "January 2, 2006"
+	todayDate := now.Format(dateLayout)
 
 	// loop through people and print out their receipts
 	for personName, titheslice := range transactionLog {
 		donationTable := fmt.Sprintf("+ %10s\t%10s\t%20s\t%18s\t%10s\n", "Date", "Check No.", "Donor", "Fund", "Amount")
 		//fmt.Printf("%d tithes for %s\n", len(titheslice), personName)
+		subtotal, err := decimal.NewFromString("0.00")
 		for _, t := range titheslice {
 			donationTable += fmt.Sprintf("- %10s\t%10s\t%20s\t%18s\t%10s\n", t.date, t.checkNumber, personName, t.checkType, t.amount)
+
+			// add to subtotal
+			numericString := strings.Replace(t.amount, "$", "", 1)
+			numericString = strings.Replace(numericString, ",", "", 1)
+			donationDecimal, err := decimal.NewFromString(numericString)
+			if err != nil {
+				panic(err)
+			}
+			subtotal = subtotal.Add(donationDecimal)
 		}
+		subtotalFloat, err := strconv.ParseFloat(subtotal.StringFixed(2), 64)
+		if err != nil {
+			panic(err)
+		}
+		p := message.NewPrinter(language.English)
+		subtotalString := "$" + p.Sprintf("%.2f", subtotalFloat)
+
+		donationTable += fmt.Sprintf("+ Total: %65v\n", subtotalString)
+		// figure out first name for greeting
+		re := regexp.MustCompile(`, (.*)$`)
+		firstName := personName
+		firstNameSubmatches := re.FindStringSubmatch(personName)
+		if firstNameSubmatches != nil {
+			firstName = firstNameSubmatches[1]
+		}
+
 		replaceMap := docx.PlaceholderMap{
-			"year":				taxYear,
-			"name":				personName,
-			"donationTable":	donationTable,
+			"year":          taxYear,
+			"name":          firstName,
+			"donationTable": donationTable,
+			"todayDate":     todayDate,
 		}
 		doc, err := docx.Open(templatePath)
 		if err != nil {
@@ -210,7 +241,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		re := regexp.MustCompile(`,* +`)
+		re = regexp.MustCompile(`,* +`)
 		newPersonName := re.ReplaceAllString(personName, "-")
 		re = regexp.MustCompile(`\(+`)
 		newPersonName = re.ReplaceAllString(newPersonName, "")
