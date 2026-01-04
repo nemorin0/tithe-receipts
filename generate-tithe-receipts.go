@@ -196,11 +196,11 @@ func main() {
 
 	// loop through people and print out their receipts
 	for personName, titheslice := range transactionLog {
-		donationTable := fmt.Sprintf("+ %10s\t%10s\t%20s\t%18s\t%10s\n", "Date", "Check No.", "Donor", "Fund", "Amount")
+		donationTable := fmt.Sprintf("+ %10s\t%11s\t%20s\t%18s\t%11s\n", "Date", "Check No.", "Donor", "Fund", "Amount")
 		//fmt.Printf("%d tithes for %s\n", len(titheslice), personName)
 		subtotal, err := decimal.NewFromString("0.00")
 		for _, t := range titheslice {
-			donationTable += fmt.Sprintf("- %10s\t%10s\t%20s\t%18s\t%10s\n", t.date, t.checkNumber, personName, t.checkType, t.amount)
+			donationTable += fmt.Sprintf("- %10s\t%11s\t%20s\t%18s\t%11s\n", t.date, t.checkNumber, personName, t.checkType, t.amount)
 
 			// add to subtotal
 			numericString := strings.Replace(t.amount, "$", "", 1)
@@ -218,7 +218,7 @@ func main() {
 		p := message.NewPrinter(language.English)
 		subtotalString := "$" + p.Sprintf("%.2f", subtotalFloat)
 
-		donationTable += fmt.Sprintf("+ Total: %65v\n", subtotalString)
+		donationTable += fmt.Sprintf("+ Total: %63v\n", subtotalString)
 		// figure out first name for greeting
 		re := regexp.MustCompile(`, (.*)$`)
 		firstName := personName
