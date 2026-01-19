@@ -166,13 +166,24 @@ func main() {
 				}
 			}
 			// check for designated cash
-			if len(row) >= 6 {
+			if len(row) >= 7 {
 				if strings.ContainsRune(row[4], ',') {
 					personName := row[4]
 					checkNumber := "cash"
 					amount := strings.TrimSpace(row[6])
+					designatedCashType := checkType
+					if len(row) >= 8 {
+						if strings.Contains(row[7], "Building") {
+							designatedCashType = "Building Fund"
+						} else if strings.Contains(row[7], "Deacon") {
+							designatedCashType = "Deacons Fund"
+						} else if row[7] == "Thank Offering" {
+							designatedCashType = "Thank Offering"
+						}
+					}
+
 					//fmt.Printf("%10s\t%10s\t%40s\t%18s\t%10s\n", fileDate, checkNumber, personName, checkType, amount)
-					transactionLog[personName] = append(transactionLog[personName], transaction{date: fileDate, checkNumber: checkNumber, amount: amount, checkType: checkType})
+					transactionLog[personName] = append(transactionLog[personName], transaction{date: fileDate, checkNumber: checkNumber, amount: amount, checkType: designatedCashType})
 				}
 			}
 		}
